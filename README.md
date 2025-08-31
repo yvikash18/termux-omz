@@ -17,7 +17,7 @@ This setup will apply -
 
 ```bash
 # First, clone this repository by typing...
-git clone https://github.com/adi1090x/termux-omz.git
+git clone https://github.com/yvikash18/termux-omz.git
 
 # Change to termux-omz directory
 cd termux-omz
