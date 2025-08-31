@@ -1,210 +1,228 @@
 #!/data/data/com.termux/files/usr/bin/bash
+# Termux OMZ + Plugins + Theme (stable, non-interactive)
+# Default plugins: fast-syntax-highlighting + zsh-autosuggestions
+# Set USE_AUTOCOMPLETE=1 to switch to zsh-autocomplete instead of autosuggestions
 
-## Author  : Aditya Shakya (extended for zsh plugin automation)
-## Twitter : @adi1090x
-## Github  : @adi1090x
-## Reddit  : @adi1090x
+set -e
 
-## termux-style installer script + zsh plugins setup
-
-## ANSI Colors (FG & BG)
+## Colors
 RED="$(printf '\033[31m')"  GREEN="$(printf '\033[32m')"  ORANGE="$(printf '\033[33m')"  BLUE="$(printf '\033[34m')"
-MAGENTA="$(printf '\033[35m')"  CYAN="$(printf '\033[36m')"  WHITE="$(printf '\033[37m')" BLACK="$(printf '\033[30m')"
-REDBG="$(printf '\033[41m')"  GREENBG="$(printf '\033[42m')"  ORANGEBG="$(printf '\033[43m')"  BLUEBG="$(printf '\033[44m')"
-MAGENTABG="$(printf '\033[45m')"  CYANBG="$(printf '\033[46m')"  WHITEBG="$(printf '\033[47m')" BLACKBG="$(printf '\033[40m')"
-DEFAULT_FG="$(printf '\033[39m')"  DEFAULT_BG="$(printf '\033[49m')"
+MAGENTA="$(printf '\033[35m')"  CYAN="$(printf '\033[36m')"  DEFAULT_FG="$(printf '\033[39m')"  DEFAULT_BG="$(printf '\033[49m')"
 
-## Directories
+## Paths
 PREFIX='/data/data/com.termux/files/usr'
 TERMUX_DIR="$HOME/.termux"
 DIR="$(pwd)"
 
+## Trap
+reset_color(){ tput sgr0 2>/dev/null || true; tput op 2>/dev/null || true; }
+on_sig(){ printf "\n\n ${BLUE}[${RED}*${BLUE}] ${RED}Script interrupted.\n"; reset_color; exit 1; }
+trap on_sig INT TERM
+
 ## Banner
 banner () {
-    clear
-    echo "
-    ${BLUE}┌──────────────────────────────────────────────────┐
-    ${BLUE}│${RED}░▀█▀░█▀▀░█▀▄░█▄█░█░█░█░█${ORANGE}░░░░░${GREEN}█▀▀░▀█▀░█░█░█░░░█▀▀░░${BLUE}│
-    ${BLUE}│${RED}░░█░░█▀▀░█▀▄░█░█░█░█░▄▀▄${ORANGE}░▄▄▄${RED}░${GREEN}▀▀█░░█░░░█░░█░░░█▀▀░░${BLUE}│
-    ${BLUE}│${RED}░░▀░░▀▀▀░▀░▀░▀░▀░▀▀▀░▀░▀${ORANGE}░░░░░${GREEN}▀▀▀░░▀░░░▀░░▀▀▀░▀▀▀░░${BLUE}│
-    ${BLUE}└──────────────────────────────────────────────────┘
-    ${BLUE}[${RED}*${BLUE}] ${ORANGE}By- Aditya Shakya ${RED}//${ORANGE} adi1090x"
+  clear
+  cat <<- "EOF"
+ __     _____ _  __  _    ____  _   _ 
+ \ \   / /_ _| |/ /   / \  / ___|| | | |
+  \ \ / / | || ' /   / _ \ \___ \| |_| |
+   \ V /  | || . \  / ___ \ ___) |  _  |
+    \_/  |___|_|\_\/_/   \_\____/|_| |_|
+                                        
+EOF
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Termux Oh-My-Zsh + Theme + Plugins Installer${DEFAULT_FG}"
 }
 
-## Script Termination
-exit_on_signal_SIGINT () {
-    { printf "\n\n%s\n" "    ${BLUE}[${RED}*${BLUE}] ${RED}Script interrupted." 2>&1; echo; reset_color; }
-    exit 0
-}
-exit_on_signal_SIGTERM () {
-    { printf "\n\n%s\n" "    ${BLUE}[${RED}*${BLUE}] ${RED}Script terminated." 2>&1; echo; reset_color; }
-    exit 0
-}
-trap exit_on_signal_SIGINT SIGINT
-trap exit_on_signal_SIGTERM SIGTERM
-
-## Reset terminal colors
-reset_color() {
-    tput sgr0   # reset attributes
-    tput op     # reset color
-    return
+## Prerequisites
+prerequisite () {
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing dependencies...${DEFAULT_FG}"
+  local need=0
+  for bin in wget tput git zsh curl sed awk; do type -p "$bin" >/dev/null 2>&1 || need=1; done
+  if [[ $need -eq 1 ]]; then
+    pkg --check-mirror update -y
+    pkg install -y wget ncurses-utils git zsh curl sed awk || {
+      echo -e " ${BLUE}[${RED}!${BLUE}] ${RED}Failed to install dependencies."; exit 1; }
+  fi
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}Dependencies OK."
 }
 
-## Prerequisite
-prerequisite() {
-    { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Dependencies..."${CYAN}; echo; }
-    # Need wget, tput (ncurses-utils), git, zsh, curl, sed
-    local need_install=0
-    for bin in wget tput git zsh curl sed; do
-        type -p "$bin" >/dev/null 2>&1 || need_install=1
-    done
-    if [[ $need_install -eq 0 ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Dependencies are already Installed!"
-    else
-        pkg update -y
-        pkg install -y wget ncurses-utils git zsh curl
-        (type -p wget tput git zsh curl >/dev/null 2>&1) && {
-            echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Dependencies are succesfully installed!"
-        } || {
-            echo; echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Error Occured, failed to install dependencies."; echo; reset_color; exit 1;
-        }
-    fi
-}
-
-## Oh My Zsh installer (non-interactive)
-ensure_oh_my_zsh () {
-    if [[ -d "$HOME/.oh-my-zsh" ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Oh My Zsh already installed."
-    else
-        echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Oh My Zsh (non-interactive)..."
-        # Create a default .zshrc if needed after install
-        RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
-            echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Failed to install Oh My Zsh."; reset_color; exit 1;
-        }
-        [[ -f "$HOME/.zshrc" ]] || cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$HOME/.zshrc"
-    fi
-    # Export ZSH_CUSTOM default if not set in env
-    export ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-    mkdir -p "$ZSH_CUSTOM/plugins"
-}
-
-## Install requested zsh plugins
-install_zsh_plugins () {
-    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Zsh plugins..."
-    export ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-
-    # zsh-autosuggestions
-    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions/.git" ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-autosuggestions already present. Updating..."
-        git -C "$ZSH_CUSTOM/plugins/zsh-autosuggestions" pull --ff-only || true
-    else
-        git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-    fi
-
-    # zsh-syntax-highlighting
-    if [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting/.git" ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-syntax-highlighting already present. Updating..."
-        git -C "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" pull --ff-only || true
-    else
-        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-    fi
-
-    # fast-syntax-highlighting
-    if [[ -d "$ZSH_CUSTOM/plugins/fast-syntax-highlighting/.git" ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}fast-syntax-highlighting already present. Updating..."
-        git -C "$ZSH_CUSTOM/plugins/fast-syntax-highlighting" pull --ff-only || true
-    else
-        git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git "$ZSH_CUSTOM/plugins/fast-syntax-highlighting"
-    fi
-
-    # zsh-autocomplete
-    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autocomplete/.git" ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-autocomplete already present. Updating..."
-        git -C "$ZSH_CUSTOM/plugins/zsh-autocomplete" pull --ff-only || true
-    else
-        git clone --depth 1 -- https://github.com/marlonrichert/zsh-autocomplete.git "$ZSH_CUSTOM/plugins/zsh-autocomplete"
-    fi
-}
-
-## Enable plugins in ~/.zshrc
-enable_plugins_in_zshrc () {
-    local ZSHRC="$HOME/.zshrc"
-    local DESIRED_PLUGINS="plugins=(git zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)"
-
-    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Configuring ~/.zshrc plugins..."
-    [[ -f "$ZSHRC" ]] || { echo "    ${BLUE}[${RED}!${BLUE}] ${RED}~/.zshrc not found. Creating from template..."; cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$ZSHRC"; }
-
-    # Backup .zshrc
-    cp -f "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d%H%M%S)"
-
-    # Replace existing plugins line or append if missing.
-    if grep -qE '^[[:space:]]*plugins=\(' "$ZSHRC"; then
-        # Replace the entire plugins=(...) line
-        sed -i 's/^[[:space:]]*plugins=(.*)$/'"$DESIRED_PLUGINS"'/g' "$ZSHRC"
-    else
-        printf "\n# Enabled by installer\n%s\n" "$DESIRED_PLUGINS" >> "$ZSHRC"
-    fi
-
-    # Make sure sourcing lines for highlighting plugins are not duplicated (usually not needed with OMZ plugins)
-    # Some users prefer explicit source order; we’ll keep default OMZ plugin loader.
-
-    echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Plugins set to: ${MAGENTA}$DESIRED_PLUGINS${GREEN}"
-    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}A backup was saved as ${ZSHRC}.backup.YYYYMMDDHHMMSS"
-}
-
-## Install termux-style (original)
+## Termux-style install (optional content present in current directory)
 install_tstyle () {
-    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing termux-style..."
-    # Delete old files
-    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
-        echo "    ${BLUE}[${RED}*${BLUE}] ${RED}Deleting files from previous installation..."${BLUE}
-        { rm -r $PREFIX/bin/termux-style $PREFIX/share/termux-style; echo; }
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing termux-style files (if present)..."
+  if [[ -d "$DIR/colors" || -d "$DIR/fonts" || -d "$DIR/tstyle" ]]; then
+    [[ -L $PREFIX/bin/termux-style ]] && rm -f $PREFIX/bin/termux-style
+    [[ -d $PREFIX/share/termux-style ]] && rm -rf $PREFIX/share/termux-style
+    mkdir -p "$PREFIX/share/termux-style"
+    [[ -d "$DIR/colors" ]] && cp -r "$DIR/colors" "$PREFIX/share/termux-style/"
+    [[ -d "$DIR/fonts"  ]] && cp -r "$DIR/fonts"  "$PREFIX/share/termux-style/"
+    [[ -d "$DIR/tstyle" ]] && cp -r "$DIR/tstyle" "$PREFIX/share/termux-style/"
+    if [[ -x "$PREFIX/share/termux-style/tstyle" ]]; then
+      chmod +x "$PREFIX/share/termux-style/tstyle"
+      ln -sf "$PREFIX/share/termux-style/tstyle" "$PREFIX/bin/termux-style"
     fi
-    # termux config dir
-    if [[ ! -d $TERMUX_DIR ]]; then
-        mkdir $TERMUX_DIR
-    else
-        cp -r $TERMUX_DIR{,.backup}
-    fi
-    # Copying files
-    { echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Copying files into ${GREEN}$PREFIX/share ${ORANGE}directory..."${BLUE}; }
-    { mkdir -p $PREFIX/share/termux-style; cp -r $DIR/colors $PREFIX/share/termux-style; cp -r $DIR/fonts $PREFIX/share/termux-style; cp -r $DIR/tstyle $PREFIX/share/termux-style; }
-    { chmod +x $PREFIX/share/termux-style/tstyle; ln -s $PREFIX/share/termux-style/tstyle $PREFIX/bin/termux-style; }
-
-    # Verify files 
-    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
-        { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Successfully Installed."; }
-        { echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Now you can run it by typing ${MAGENTA}termux-style${GREEN}."; echo; }
-    else
-        { echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Error Occured."; echo; reset_color; exit 1; }
-    fi
+    echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}termux-style installed."
+  else
+    echo -e " ${BLUE}[${RED}*${BLUE}] ${CYAN}No local termux-style assets found. Skipping."
+  fi
 }
 
-## Main
-main () {
-    banner
-    prerequisite
+## Apply Termux font & colors (if available)
+apply_termux_theme () {
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Applying Termux font & colors (if available)..."
+  mkdir -p "$TERMUX_DIR"
+  local FONT_SRC=""
+  local COLOR_SRC=""
 
-    # termux-style install (as before)
-    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
-        { echo; echo "    ${BLUE}[${RED}!${BLUE}] ${MAGENTA}termux-style ${GREEN}is already installed."; }
-        { read -p "    ${BLUE}[${RED}?${BLUE}] ${ORANGE}Do you wanna re-install it? (y/n): ${GREEN}"; echo; }
-        if [[ "$REPLY" =~ ^[yY]$ ]]; then
-            install_tstyle
-        fi
+  # Prefer assets from local repo; fallback to termux-style installed path
+  for c in \
+    "$DIR/colors/gruvbox-dark/colors.properties" \
+    "$DIR/colors/colors.properties" \
+    "$PREFIX/share/termux-style/colors/gruvbox-dark/colors.properties" \
+    "$PREFIX/share/termux-style/colors/colors.properties"; do
+    [[ -f "$c" ]] && COLOR_SRC="$c" && break
+  done
+
+  for f in \
+    "$DIR/fonts/JetBrainsMonoNerdFontMono.ttf" \
+    "$DIR/fonts/font.ttf" \
+    "$PREFIX/share/termux-style/fonts/JetBrainsMonoNerdFontMono.ttf" \
+    "$PREFIX/share/termux-style/fonts/font.ttf"; do
+    [[ -f "$f" ]] && FONT_SRC="$f" && break
+  done
+
+  [[ -n "$COLOR_SRC" ]] && cp -f "$COLOR_SRC" "$TERMUX_DIR/colors.properties" || true
+  [[ -n "$FONT_SRC"  ]] && cp -f "$FONT_SRC"  "$TERMUX_DIR/font.ttf" || true
+
+  termux-reload-settings 2>/dev/null || true
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}Theme applied (if files were found)."
+}
+
+## Install Oh My Zsh (non-interactive)
+ensure_oh_my_zsh () {
+  if [[ -d "$HOME/.oh-my-zsh" ]]; then
+    echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}Oh My Zsh already installed."
+  else
+    echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Oh My Zsh..."
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c \
+      "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+  fi
+  [[ -f "$HOME/.zshrc" ]] || cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$HOME/.zshrc"
+  export ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+  mkdir -p "$ZSH_CUSTOM/plugins"
+}
+
+## Plugins
+install_plugins () {
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Zsh plugins..."
+
+  # Always install fast-syntax-highlighting
+  if [[ -d "$ZSH_CUSTOM/plugins/fast-syntax-highlighting/.git" ]]; then
+    git -C "$ZSH_CUSTOM/plugins/fast-syntax-highlighting" pull --ff-only || true
+  else
+    git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git \
+      "$ZSH_CUSTOM/plugins/fast-syntax-highlighting"
+  fi
+
+  if [[ "${USE_AUTOCOMPLETE:-0}" -eq 1 ]]; then
+    # zsh-autocomplete profile
+    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autocomplete/.git" ]]; then
+      git -C "$ZSH_CUSTOM/plugins/zsh-autocomplete" pull --ff-only || true
     else
-        { echo; install_tstyle; }
+      git clone --depth 1 https://github.com/marlonrichert/zsh-autocomplete.git \
+        "$ZSH_CUSTOM/plugins/zsh-autocomplete"
     fi
+    # Ensure autosuggestions NOT installed in this profile
+    [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || true
+  else
+    # autosuggestions profile
+    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions/.git" ]]; then
+      git -C "$ZSH_CUSTOM/plugins/zsh-autosuggestions" pull --ff-only || true
+    else
+      git clone https://github.com/zsh-users/zsh-autosuggestions.git \
+        "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    fi
+    # Avoid syntax-highlighting (classic) & autocomplete to reduce conflicts
+    [[ -d "$ZSH_CUSTOM/plugins/zsh-autocomplete" ]] || true
+  fi
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}Plugins installed/updated."
+}
 
-    # Zsh + plugins setup
-    ensure_oh_my_zsh
-    install_zsh_plugins
-    enable_plugins_in_zshrc
+## Update .zshrc safely
+patch_zshrc () {
+  local ZSHRC="$HOME/.zshrc"
+  local THEME="agnoster"
+  local DESIRED_PLUGINS
 
-    { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Zsh plugins installed and enabled."; }
-    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Open a new Zsh session (or run: ${MAGENTA}exec zsh${ORANGE}) to load them."
-    reset_color
-    exit 0
+  if [[ "${USE_AUTOCOMPLETE:-0}" -eq 1 ]]; then
+    DESIRED_PLUGINS='plugins=(git fast-syntax-highlighting zsh-autocomplete)'
+  else
+    DESIRED_PLUGINS='plugins=(git fast-syntax-highlighting zsh-autosuggestions)'
+  fi
+
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${ORANGE}Patching ~/.zshrc..."
+  cp -f "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d%H%M%S)"
+
+  # Ensure ZSH path and theme
+  if grep -qE '^ZSH=' "$ZSHRC"; then
+    sed -i 's#^ZSH=.*#ZSH="$HOME/.oh-my-zsh"#' "$ZSHRC"
+  else
+    printf '\nZSH="$HOME/.oh-my-zsh"\n' >> "$ZSHRC"
+  fi
+
+  if grep -qE '^ZSH_THEME=' "$ZSHRC"; then
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="'"$THEME"'"/' "$ZSHRC"
+  else
+    printf '\nZSH_THEME="'"$THEME"\"'\n' >> "$ZSHRC"
+  fi
+
+  # Replace plugins=() line robustly
+  awk -v repl="$DESIRED_PLUGINS" '
+    BEGIN{done=0}
+    /^[[:space:]]*plugins=\(/ && !done { print repl; done=1; next }
+    { print }
+    END{ if(!done) print "\n# Enabled by installer\n" repl }
+  ' "$ZSHRC" > "$ZSHRC.tmp" && mv "$ZSHRC.tmp" "$ZSHRC"
+
+  # Ensure completion is initialized
+  if ! grep -q 'autoload -Uz compinit' "$ZSHRC"; then
+    cat >> "$ZSHRC" <<'EOF'
+
+# Ensure completion is initialized
+autoload -Uz compinit
+compinit -u
+EOF
+  fi
+
+  # Autocomplete profile tweaks
+  if [[ "${USE_AUTOCOMPLETE:-0}" -eq 1 ]]; then
+    if ! grep -q 'zsh-autocomplete tweaks' "$ZSHRC"; then
+      cat >> "$ZSHRC" <<'EOF'
+
+# zsh-autocomplete tweaks
+bindkey '^I' autocomplete-or-indent
+zstyle ':autocomplete:*' min-input 1
+EOF
+    fi
+  fi
+
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}~/.zshrc updated."
+}
+
+finish () {
+  echo -e " ${BLUE}[${RED}*${BLUE}] ${GREEN}All set! Reloading into zsh..."
+  reset_color
+  exec zsh
+}
+
+main () {
+  banner
+  prerequisite
+  install_tstyle
+  apply_termux_theme
+  ensure_oh_my_zsh
+  install_plugins
+  patch_zshrc
+  finish
 }
 
 main
