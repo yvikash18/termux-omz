@@ -1,111 +1,210 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-## Author  : Aditya Shakya
+## Author  : Aditya Shakya (extended for zsh plugin automation)
 ## Twitter : @adi1090x
 ## Github  : @adi1090x
 ## Reddit  : @adi1090x
 
-## A simple script to setup oh-my-zsh in termux terminal emulator.
+## termux-style installer script + zsh plugins setup
 
 ## ANSI Colors (FG & BG)
-RED="$(printf '\033[31m')"         GREEN="$(printf '\033[32m')"
-ORANGE="$(printf '\033[33m')"      BLUE="$(printf '\033[34m')"
-MAGENTA="$(printf '\033[35m')"     CYAN="$(printf '\033[36m')"
-WHITE="$(printf '\033[37m')"       BLACK="$(printf '\033[30m')"
-REDBG="$(printf '\033[41m')"       GREENBG="$(printf '\033[42m')"
-ORANGEBG="$(printf '\033[43m')"    BLUEBG="$(printf '\033[44m')"
-MAGENTABG="$(printf '\033[45m')"   CYANBG="$(printf '\033[46m')"
-WHITEBG="$(printf '\033[47m')"     BLACKBG="$(printf '\033[40m')"
+RED="$(printf '\033[31m')"  GREEN="$(printf '\033[32m')"  ORANGE="$(printf '\033[33m')"  BLUE="$(printf '\033[34m')"
+MAGENTA="$(printf '\033[35m')"  CYAN="$(printf '\033[36m')"  WHITE="$(printf '\033[37m')" BLACK="$(printf '\033[30m')"
+REDBG="$(printf '\033[41m')"  GREENBG="$(printf '\033[42m')"  ORANGEBG="$(printf '\033[43m')"  BLUEBG="$(printf '\033[44m')"
+MAGENTABG="$(printf '\033[45m')"  CYANBG="$(printf '\033[46m')"  WHITEBG="$(printf '\033[47m')" BLACKBG="$(printf '\033[40m')"
 DEFAULT_FG="$(printf '\033[39m')"  DEFAULT_BG="$(printf '\033[49m')"
 
 ## Directories
 PREFIX='/data/data/com.termux/files/usr'
+TERMUX_DIR="$HOME/.termux"
 DIR="$(pwd)"
-
-## Reset colors
-reset_color () {
-	{ printf '\033[39m'; printf '\033[49m'; }
-}
 
 ## Banner
 banner () {
     clear
-    cat <<- EOF
-	${BLUE} ┌─────────────────────────────────┐
-	${BLUE} │${RED}   ┏━┓╻ ╻   ${ORANGE}┏┳┓╻ ╻   ${GREEN}╺━┓┏━┓╻ ╻   ${BLUE}│
-	${BLUE} │${RED}   ┃ ┃┣━┫${CYAN}╺━╸${ORANGE}┃┃┃┗┳┛${CYAN}╺━╸${GREEN}┏━┛┗━┓┣━┫   ${BLUE}│
-	${BLUE} │${RED}   ┗━┛╹ ╹   ${ORANGE}╹ ╹ ╹    ${GREEN}┗━╸┗━┛╹ ╹   ${BLUE}│
-	${BLUE} └─────────────────────────────────┘
-	${CYAN}  By: ${MAGENTA}Aditya Shakya ${ORANGE}// ${MAGENTA}adi1090x
-	EOF
+    echo "
+    ${BLUE}┌──────────────────────────────────────────────────┐
+    ${BLUE}│${RED}░▀█▀░█▀▀░█▀▄░█▄█░█░█░█░█${ORANGE}░░░░░${GREEN}█▀▀░▀█▀░█░█░█░░░█▀▀░░${BLUE}│
+    ${BLUE}│${RED}░░█░░█▀▀░█▀▄░█░█░█░█░▄▀▄${ORANGE}░▄▄▄${RED}░${GREEN}▀▀█░░█░░░█░░█░░░█▀▀░░${BLUE}│
+    ${BLUE}│${RED}░░▀░░▀▀▀░▀░▀░▀░▀░▀▀▀░▀░▀${ORANGE}░░░░░${GREEN}▀▀▀░░▀░░░▀░░▀▀▀░▀▀▀░░${BLUE}│
+    ${BLUE}└──────────────────────────────────────────────────┘
+    ${BLUE}[${RED}*${BLUE}] ${ORANGE}By- Aditya Shakya ${RED}//${ORANGE} adi1090x"
 }
 
 ## Script Termination
 exit_on_signal_SIGINT () {
-    { printf "\n\n%s\n" " ${BLUE}[${RED}*${BLUE}] ${RED}Script interrupted." 2>&1; echo; reset_color; }
+    { printf "\n\n%s\n" "    ${BLUE}[${RED}*${BLUE}] ${RED}Script interrupted." 2>&1; echo; reset_color; }
     exit 0
 }
-
 exit_on_signal_SIGTERM () {
-    { printf "\n\n%s\n" " ${BLUE}[${RED}*${BLUE}] ${RED}Script terminated." 2>&1; echo; reset_color; }
+    { printf "\n\n%s\n" "    ${BLUE}[${RED}*${BLUE}] ${RED}Script terminated." 2>&1; echo; reset_color; }
     exit 0
 }
-
 trap exit_on_signal_SIGINT SIGINT
 trap exit_on_signal_SIGTERM SIGTERM
 
-## Install ZSH
-install_zsh () {
-	{ echo ${ORANGE}" [*] Installing ZSH..."${CYAN}; echo; }
-	if [[ -e $PREFIX/bin/zsh ]]; then
-		{ echo ${GREEN}" [*] ZSH is already Installed!"; echo; }
-	else
-		{ pkg --check-mirror update -y; pkg install -y zsh; }
-		(type -p zsh &> /dev/null) && { echo; echo ${GREEN}" [*] Succesfully Installed!"; echo; } || { echo; echo ${RED}" [!] Error Occured, ZSH is not installed."; echo; reset_color; exit 1; }
-	fi
+## Reset terminal colors
+reset_color() {
+    tput sgr0   # reset attributes
+    tput op     # reset color
+    return
 }
 
-## Backup user settings
-backup_tmux () {
-	if [[ ! -d "$HOME/.termux" ]]; then
-		mkdir $HOME/.termux
-	else
-		cp -r $HOME/.termux{,.backup}
-	fi
+## Prerequisite
+prerequisite() {
+    { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Dependencies..."${CYAN}; echo; }
+    # Need wget, tput (ncurses-utils), git, zsh, curl, sed
+    local need_install=0
+    for bin in wget tput git zsh curl sed; do
+        type -p "$bin" >/dev/null 2>&1 || need_install=1
+    done
+    if [[ $need_install -eq 0 ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Dependencies are already Installed!"
+    else
+        pkg update -y
+        pkg install -y wget ncurses-utils git zsh curl
+        (type -p wget tput git zsh curl >/dev/null 2>&1) && {
+            echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Dependencies are succesfully installed!"
+        } || {
+            echo; echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Error Occured, failed to install dependencies."; echo; reset_color; exit 1;
+        }
+    fi
 }
 
-## Setup OMZ
-setup_omz () {
-	{ echo ${ORANGE}" [*] Cloning oh-my-zsh framework..."; echo ${CYAN}; }
-	git clone --depth 1 https://github.com/ohmyzsh/ohmyzsh.git $HOME/.oh-my-zsh
-	[[ -d $HOME/.oh-my-zsh ]] && { echo; echo ${GREEN}" [*] Succesfully Cloned!"; echo; } || { echo; echo ${RED}" [!] Error Occured, failed to clone OMZ."; echo; reset_color; exit 1; }
-	{ echo ${ORANGE}" [*] Setting up configurations..."; echo; }
-	cp $HOME/.oh-my-zsh/templates/zshrc.zsh-template $HOME/.zshrc
-	{ echo ${ORANGE}" [*] Changing default shell to 'zsh'."; echo; }
-	chsh -s zsh
-	{ echo ${ORANGE}" [*] Applying color-scheme, font & zsh theme..."; echo; }
-	{ cp $DIR/.files/colors.properties $HOME/.termux/colors.properties; cp $DIR/.files/font.ttf $HOME/.termux/font.ttf; }
-	sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/g' $HOME/.zshrc
-	termux-reload-settings
-	{ echo ${GREEN}" [*] Setup completed. Enjoy oh-my-zsh in Termux."; echo; }
-	{ reset_color; exit; }
+## Oh My Zsh installer (non-interactive)
+ensure_oh_my_zsh () {
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Oh My Zsh already installed."
+    else
+        echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Oh My Zsh (non-interactive)..."
+        # Create a default .zshrc if needed after install
+        RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
+            echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Failed to install Oh My Zsh."; reset_color; exit 1;
+        }
+        [[ -f "$HOME/.zshrc" ]] || cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$HOME/.zshrc"
+    fi
+    # Export ZSH_CUSTOM default if not set in env
+    export ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+    mkdir -p "$ZSH_CUSTOM/plugins"
+}
+
+## Install requested zsh plugins
+install_zsh_plugins () {
+    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing Zsh plugins..."
+    export ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+
+    # zsh-autosuggestions
+    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions/.git" ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-autosuggestions already present. Updating..."
+        git -C "$ZSH_CUSTOM/plugins/zsh-autosuggestions" pull --ff-only || true
+    else
+        git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    fi
+
+    # zsh-syntax-highlighting
+    if [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting/.git" ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-syntax-highlighting already present. Updating..."
+        git -C "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" pull --ff-only || true
+    else
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+    fi
+
+    # fast-syntax-highlighting
+    if [[ -d "$ZSH_CUSTOM/plugins/fast-syntax-highlighting/.git" ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}fast-syntax-highlighting already present. Updating..."
+        git -C "$ZSH_CUSTOM/plugins/fast-syntax-highlighting" pull --ff-only || true
+    else
+        git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git "$ZSH_CUSTOM/plugins/fast-syntax-highlighting"
+    fi
+
+    # zsh-autocomplete
+    if [[ -d "$ZSH_CUSTOM/plugins/zsh-autocomplete/.git" ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}zsh-autocomplete already present. Updating..."
+        git -C "$ZSH_CUSTOM/plugins/zsh-autocomplete" pull --ff-only || true
+    else
+        git clone --depth 1 -- https://github.com/marlonrichert/zsh-autocomplete.git "$ZSH_CUSTOM/plugins/zsh-autocomplete"
+    fi
+}
+
+## Enable plugins in ~/.zshrc
+enable_plugins_in_zshrc () {
+    local ZSHRC="$HOME/.zshrc"
+    local DESIRED_PLUGINS="plugins=(git zsh-autosuggestions zsh-syntax-highlighting fast-syntax-highlighting zsh-autocomplete)"
+
+    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Configuring ~/.zshrc plugins..."
+    [[ -f "$ZSHRC" ]] || { echo "    ${BLUE}[${RED}!${BLUE}] ${RED}~/.zshrc not found. Creating from template..."; cp "$HOME/.oh-my-zsh/templates/zshrc.zsh-template" "$ZSHRC"; }
+
+    # Backup .zshrc
+    cp -f "$ZSHRC" "${ZSHRC}.backup.$(date +%Y%m%d%H%M%S)"
+
+    # Replace existing plugins line or append if missing.
+    if grep -qE '^[[:space:]]*plugins=\(' "$ZSHRC"; then
+        # Replace the entire plugins=(...) line
+        sed -i 's/^[[:space:]]*plugins=(.*)$/'"$DESIRED_PLUGINS"'/g' "$ZSHRC"
+    else
+        printf "\n# Enabled by installer\n%s\n" "$DESIRED_PLUGINS" >> "$ZSHRC"
+    fi
+
+    # Make sure sourcing lines for highlighting plugins are not duplicated (usually not needed with OMZ plugins)
+    # Some users prefer explicit source order; we’ll keep default OMZ plugin loader.
+
+    echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Plugins set to: ${MAGENTA}$DESIRED_PLUGINS${GREEN}"
+    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}A backup was saved as ${ZSHRC}.backup.YYYYMMDDHHMMSS"
+}
+
+## Install termux-style (original)
+install_tstyle () {
+    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Installing termux-style..."
+    # Delete old files
+    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
+        echo "    ${BLUE}[${RED}*${BLUE}] ${RED}Deleting files from previous installation..."${BLUE}
+        { rm -r $PREFIX/bin/termux-style $PREFIX/share/termux-style; echo; }
+    fi
+    # termux config dir
+    if [[ ! -d $TERMUX_DIR ]]; then
+        mkdir $TERMUX_DIR
+    else
+        cp -r $TERMUX_DIR{,.backup}
+    fi
+    # Copying files
+    { echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Copying files into ${GREEN}$PREFIX/share ${ORANGE}directory..."${BLUE}; }
+    { mkdir -p $PREFIX/share/termux-style; cp -r $DIR/colors $PREFIX/share/termux-style; cp -r $DIR/fonts $PREFIX/share/termux-style; cp -r $DIR/tstyle $PREFIX/share/termux-style; }
+    { chmod +x $PREFIX/share/termux-style/tstyle; ln -s $PREFIX/share/termux-style/tstyle $PREFIX/bin/termux-style; }
+
+    # Verify files 
+    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
+        { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Successfully Installed."; }
+        { echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Now you can run it by typing ${MAGENTA}termux-style${GREEN}."; echo; }
+    else
+        { echo "    ${BLUE}[${RED}!${BLUE}] ${RED}Error Occured."; echo; reset_color; exit 1; }
+    fi
 }
 
 ## Main
 main () {
-	banner
-	# Check for previous installation
-	if [[ -d $HOME/.oh-my-zsh ]]; then
-		{ echo; echo ${GREEN}" [!] ${MAGENTA}Oh-my-zsh ${GREEN}is already installed."; }
-		{ read -p ${ORANGE}" [?] Do you wanna re-install it? (y/n): ${GREEN}"; echo; }
-		if [[ "$REPLY" =~ ^[y/Y]$ ]]; then
-			{ rm -rf $HOME/.oh-my-zsh; install_zsh; backup_tmux; setup_omz; } 
-		else
-			{ reset_color; exit; }
-		fi
-	else
-		{ echo; install_zsh; backup_tmux; setup_omz; }
-	fi
+    banner
+    prerequisite
+
+    # termux-style install (as before)
+    if [[ (-L $PREFIX/bin/termux-style) && (-d $PREFIX/share/termux-style) ]]; then
+        { echo; echo "    ${BLUE}[${RED}!${BLUE}] ${MAGENTA}termux-style ${GREEN}is already installed."; }
+        { read -p "    ${BLUE}[${RED}?${BLUE}] ${ORANGE}Do you wanna re-install it? (y/n): ${GREEN}"; echo; }
+        if [[ "$REPLY" =~ ^[yY]$ ]]; then
+            install_tstyle
+        fi
+    else
+        { echo; install_tstyle; }
+    fi
+
+    # Zsh + plugins setup
+    ensure_oh_my_zsh
+    install_zsh_plugins
+    enable_plugins_in_zshrc
+
+    { echo; echo "    ${BLUE}[${RED}*${BLUE}] ${GREEN}Zsh plugins installed and enabled."; }
+    echo "    ${BLUE}[${RED}*${BLUE}] ${ORANGE}Open a new Zsh session (or run: ${MAGENTA}exec zsh${ORANGE}) to load them."
+    reset_color
+    exit 0
 }
 
 main
